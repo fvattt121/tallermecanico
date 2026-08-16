@@ -35,6 +35,7 @@ public class PanelOrdenes extends JPanel implements Refrescable {
     private JComboBox<Mecanico>  comboMecanico;
     private JComboBox<Refaccion> comboRef;
     private BotonEstilizado btnElimOrden;
+    private JPanel formsPanel;
 
     public PanelOrdenes() {
         setLayout(new BorderLayout(0, 0));
@@ -207,7 +208,7 @@ public class PanelOrdenes extends JPanel implements Refrescable {
         scrollTabla.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, new Color(210, 215, 225)));
         panel.add(scrollTabla, BorderLayout.CENTER);
 
-        JPanel formsPanel = new JPanel(new GridLayout(1, 2, 8, 0));
+        formsPanel = new JPanel(new GridLayout(1, 2, 8, 0));
         formsPanel.setBackground(new Color(245, 247, 252));
         formsPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         formsPanel.add(construirFormRefaccion());
@@ -668,17 +669,10 @@ public class PanelOrdenes extends JPanel implements Refrescable {
 
     /** Habilita o deshabilita el panel de formularios de edición de ítems. */
     private void actualizarEstadoPanelEdicion(boolean habilitado, OrdenReparacion orden) {
-        // Buscar el panel de formularios (formsPanel) y cambiar su estado
-        // Recorrer los componentes del panel de detalle
-        java.awt.Container parent = (tablaItems != null && tablaItems.getParent() != null)
-            ? tablaItems.getParent().getParent() : null;
-        if (parent instanceof JPanel) {
-            for (java.awt.Component comp : parent.getComponents()) {
-                if (comp instanceof JPanel) {
-                    setEnabled(comp, habilitado);
-                }
-            }
+        if (formsPanel != null) {
+            setEnabled(formsPanel, habilitado);
         }
+
         if (!habilitado && orden != null) {
             // Mostrar tooltip explicativo en el combo
             if (comboRef != null) {
