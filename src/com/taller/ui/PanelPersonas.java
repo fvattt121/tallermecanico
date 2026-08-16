@@ -246,6 +246,10 @@ public class PanelPersonas extends JPanel implements Refrescable {
                 JOptionPane.showMessageDialog(this, "Selecciona un cliente de la lista", "Sin Selección", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+            if (!c.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes actualizar la información de un cliente archivado.\nDebes restaurarlo primero para poder realizar modificaciones.", "Cliente Archivado", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             try {
                 String nom = cNombre.getText().trim();
                 String tel = cTel.getText().trim();
@@ -432,6 +436,10 @@ public class PanelPersonas extends JPanel implements Refrescable {
             Persona p = lista.getSelectedValue();
             if (!(p instanceof Mecanico m)) {
                 JOptionPane.showMessageDialog(this, "Selecciona un mecánico de la lista", "Sin Selección", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (!m.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes actualizar la información de un mecánico archivado.\nDebes restaurarlo primero para poder realizar modificaciones.", "Mecánico Archivado", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             try {

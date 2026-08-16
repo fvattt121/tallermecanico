@@ -87,6 +87,10 @@ public class PanelRefacciones extends JPanel implements Refrescable {
                 JOptionPane.showMessageDialog(this, "Selecciona una refacción de la tabla primero");
                 return;
             }
+            if (!refaccionSeleccionada.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes actualizar una refacción archivada.\nDebes restaurarla primero para realizar cambios.", "Refacción Archivada", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             try {
                 String nom = nombre.getText().trim();
                 if (nom.isEmpty()) {

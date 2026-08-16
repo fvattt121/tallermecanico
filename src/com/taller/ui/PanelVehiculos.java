@@ -254,6 +254,10 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         btnCambiar.addActionListener(e -> {
             Vehiculo sel = listaVehiculos.getSelectedValue();
             if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
+            if (!sel.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes actualizar el estatus de un vehículo archivado.\nDebes restaurar el vehículo primero.", "Vehículo Archivado", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             vehiculoDAO.actualizarEstatus(sel.getId(), (EstatusVehiculo) comboEstatus.getSelectedItem());
             new com.taller.dao.BitacoraDAO().registrar("CLICK", "Actualizó estatus de vehículo " + sel.getPlacas() + " a " + comboEstatus.getSelectedItem());
             refrescar();
@@ -265,6 +269,10 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         btnInventario.addActionListener(e -> {
             Vehiculo sel = listaVehiculos.getSelectedValue();
             if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
+            if (!sel.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes ver/editar el inventario visual de un vehículo archivado.\nDebes restaurar el vehículo primero.", "Vehículo Archivado", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             Window ancestor = SwingUtilities.getWindowAncestor(this);
             if (ancestor instanceof Frame) new InventarioVisualDialog((Frame) ancestor, sel, vehiculoDAO).setVisible(true);
             refrescar();

@@ -235,6 +235,10 @@ public class PanelOrdenes extends JPanel implements Refrescable {
         btnCambiarEst.addActionListener(e -> {
             OrdenReparacion orden = listaOrdenes.getSelectedValue();
             if (orden == null) { JOptionPane.showMessageDialog(this, "Selecciona una orden primero"); return; }
+            if (!orden.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes modificar el estatus de una orden archivada.\nDebes restaurar la orden primero para realizar cambios.", "Orden Archivada", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             String nuevoEst = (String) comboEstOrden.getSelectedItem();
             EstatusVehiculo ev;
             try { ev = EstatusVehiculo.valueOf(nuevoEst); }
@@ -250,6 +254,10 @@ public class PanelOrdenes extends JPanel implements Refrescable {
             OrdenReparacion orden = listaOrdenes.getSelectedValue();
             if (row == -1 || orden == null) {
                 JOptionPane.showMessageDialog(this, "Selecciona una orden y un ítem para eliminar");
+                return;
+            }
+            if (!orden.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No puedes eliminar ítems de una orden archivada.\nDebes restaurar la orden primero para realizar cambios.", "Orden Archivada", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             // REGLA DE NEGOCIO: LISTO significa trabajo entregado/pagado, no se puede modificar
@@ -290,6 +298,37 @@ public class PanelOrdenes extends JPanel implements Refrescable {
                     refrescar();
                 }
             } else {
+                // REGLA DE NEGOCIO: Validar que el vehículo y el cliente padre no estén archivados
+                Vehiculo v = vehiculoDAO.listarTodos(true).stream()
+                    .filter(x -> x.getId() == orden.getVehiculoId()).findFirst().orElse(null);
+                if (v != null && !v.isActivo()) {
+                    JOptionPane.showMessageDialog(this,
+                        "No puedes restaurar la Orden #" + orden.getId() + " directamente.\n\n"
+                        + "El vehículo asociado '" + v.getPlacas() + "' está archivado.\n"
+                        + "Para restaurar esta orden debes:\n"
+                        + "  1. Ir a 'Recepción de vehículos'\n"
+                        + "  2. Restaurar el vehículo '" + v.getPlacas() + "'\n"
+                        + "  3. La orden se restaurará automáticamente.",
+                        "Restauración bloqueada - Vehículo archivado",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                if (v != null) {
+                    String nombreCliente = vehiculoDAO.getNombreClienteSiArchivado(v.getId());
+                    if (nombreCliente != null) {
+                        JOptionPane.showMessageDialog(this,
+                            "No puedes restaurar la Orden #" + orden.getId() + " directamente.\n\n"
+                            + "El cliente '" + nombreCliente + "' está archivado.\n"
+                            + "Para restaurar esta orden debes:\n"
+                            + "  1. Ir a 'Clientes y mecánicos'\n"
+                            + "  2. Restaurar al cliente '" + nombreCliente + "'\n"
+                            + "  3. El vehículo y la orden se restaurarán automáticamente.",
+                            "Restauración bloqueada - Cliente archivado",
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                }
+
                 if (JOptionPane.showConfirmDialog(this, "¿Restaurar Orden #" + orden.getId() + "?\n(Volverá a ser visible para todos los roles)",
                     "Restaurar Orden", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     ordenDAO.cambiarActivo(orden.getId(), true);
