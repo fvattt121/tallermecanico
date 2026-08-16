@@ -149,8 +149,14 @@ public class UsuarioDAO {
 
 
     public java.util.List<Usuario> listarTodos() {
+        return listarTodos(false);
+    }
+
+    public java.util.List<Usuario> listarTodos(boolean incluirArchivados) {
         java.util.List<Usuario> lista = new java.util.ArrayList<>();
-        String sql = "SELECT * FROM usuarios WHERE activo = 1 ORDER BY rol, username";
+        String sql = incluirArchivados
+            ? "SELECT * FROM usuarios ORDER BY rol, username"
+            : "SELECT * FROM usuarios WHERE activo = 1 ORDER BY rol, username";
         try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) lista.add(mapear(rs));
@@ -161,21 +167,29 @@ public class UsuarioDAO {
     }
 
     public void eliminar(int id) {
+        cambiarEstadoActivo(id, false);
+    }
+
+    public void cambiarEstadoActivo(int id, boolean activo) {
         try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(
-                "UPDATE usuarios SET activo = 0 WHERE id = ?")) {
-            ps.setInt(1, id);
+                "UPDATE usuarios SET activo = ? WHERE id = ?")) {
+            ps.setInt(1, activo ? 1 : 0);
+            ps.setInt(2, id);
             ps.executeUpdate();
-            bitacoraDAO.registrar("ELIMINAR_LOGICO", "Cuenta de usuario desactivada/ocultada (id=" + id + ")");
+            String accion = activo ? "RESTAURAR" : "ELIMINAR_LOGICO";
+            bitacoraDAO.registrar(accion, "Cuenta de usuario modificada: activo=" + activo + " (id=" + id + ")");
         } catch (SQLException e) {
-            throw new RuntimeException("Error al desactivar usuario", e);
+            throw new RuntimeException("Error al cambiar estado activo del usuario", e);
         }
     }
 
     private Usuario mapear(ResultSet rs) throws SQLException {
         Integer personaId = rs.getObject("persona_id") != null ? rs.getInt("persona_id") : null;
-        return new Usuario(
+        Usuario u = new Usuario(
             rs.getInt("id"), rs.getString("username"), rs.getString("clave_hash"),
             RolUsuario.valueOf(rs.getString("rol")), personaId
         );
+        u.setActivo(rs.getInt("activo") == 1);
+        return u;
     }
 }

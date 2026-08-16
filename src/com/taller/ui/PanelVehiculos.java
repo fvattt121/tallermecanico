@@ -21,6 +21,7 @@ public class PanelVehiculos extends JPanel implements Refrescable {
     private final DefaultListModel<Vehiculo> modeloLista = new DefaultListModel<>();
     private final JList<Vehiculo> listaVehiculos = new JList<>(modeloLista);
     private BotonEstilizado btnArchivar;
+    private JComboBox<EstatusVehiculo> comboEstatus;
 
     public PanelVehiculos() {
         setLayout(new BorderLayout(15, 15));
@@ -62,7 +63,17 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         });
 
         add(new JScrollPane(listaVehiculos), BorderLayout.CENTER);
-        add(construirPanelDerecho(), BorderLayout.EAST);
+
+        JScrollPane scrollDerecho = new JScrollPane(construirPanelDerecho());
+        scrollDerecho.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollDerecho.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollDerecho.setBorder(null);
+        scrollDerecho.setPreferredSize(new Dimension(340, 100));
+        add(scrollDerecho, BorderLayout.EAST);
+
+        // Panel SOUTH: gestión del vehículo seleccionado — siempre visible
+        add(construirBarraGestion(), BorderLayout.SOUTH);
+
         refrescar();
     }
 
@@ -210,25 +221,26 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         panel.add(btnRecibir);
         panel.add(Box.createVerticalStrut(16));
 
-        JSeparator sep = new JSeparator();
-        sep.setMaximumSize(new Dimension(280, 2));
-        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(sep);
-        panel.add(Box.createVerticalStrut(12));
+        return panel;
+    }
 
-        JLabel lblCambio = new JLabel("Gestión del vehículo seleccionado");
-        lblCambio.setFont(new Font("SansSerif", Font.BOLD, 13));
-        lblCambio.setForeground(Estilos.AZUL_OSCURO);
-        panel.add(lblCambio);
-        panel.add(Box.createVerticalStrut(8));
-        JComboBox<EstatusVehiculo> comboEstatus = new JComboBox<>(EstatusVehiculo.values());
-        comboEstatus.setAlignmentX(Component.LEFT_ALIGNMENT);
-        comboEstatus.setMaximumSize(new Dimension(280, 32));
-        panel.add(comboEstatus);
-        panel.add(Box.createVerticalStrut(8));
+    /** Barra inferior siempre visible con los controles de vehículo seleccionado */
+    private JPanel construirBarraGestion() {
+        JPanel barra = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        barra.setBackground(new Color(235, 238, 245));
+        barra.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 205, 215)));
+
+        JLabel lbl = new JLabel("Vehículo seleccionado:");
+        lbl.setFont(new Font("SansSerif", Font.BOLD, 13));
+        lbl.setForeground(Estilos.AZUL_OSCURO);
+        barra.add(lbl);
+
+        comboEstatus = new JComboBox<>(EstatusVehiculo.values());
+        comboEstatus.setPreferredSize(new Dimension(160, 32));
+        barra.add(comboEstatus);
+
         BotonEstilizado btnCambiar = new BotonEstilizado("Actualizar estatus", Estilos.AZUL_MEDIO);
-        btnCambiar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnCambiar.setMaximumSize(new Dimension(280, 40));
+        btnCambiar.setPreferredSize(new Dimension(160, 32));
         btnCambiar.addActionListener(e -> {
             Vehiculo sel = listaVehiculos.getSelectedValue();
             if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
@@ -236,12 +248,10 @@ public class PanelVehiculos extends JPanel implements Refrescable {
             new com.taller.dao.BitacoraDAO().registrar("CLICK", "Actualizó estatus de vehículo " + sel.getPlacas() + " a " + comboEstatus.getSelectedItem());
             refrescar();
         });
-        panel.add(btnCambiar);
-        panel.add(Box.createVerticalStrut(8));
+        barra.add(btnCambiar);
 
         BotonEstilizado btnInventario = new BotonEstilizado("Inventario Visual", Estilos.VERDE);
-        btnInventario.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnInventario.setMaximumSize(new Dimension(280, 40));
+        btnInventario.setPreferredSize(new Dimension(150, 32));
         btnInventario.addActionListener(e -> {
             Vehiculo sel = listaVehiculos.getSelectedValue();
             if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
@@ -249,22 +259,20 @@ public class PanelVehiculos extends JPanel implements Refrescable {
             if (ancestor instanceof Frame) new InventarioVisualDialog((Frame) ancestor, sel, vehiculoDAO).setVisible(true);
             refrescar();
         });
-        panel.add(btnInventario);
-        panel.add(Box.createVerticalStrut(8));
+        barra.add(btnInventario);
 
-        // Botón de Archivado: SUPERADMIN y GERENTE
+        // Botón Archivar: solo SUPERADMIN y GERENTE
         Usuario userAct = Sesion.getUsuarioActual();
         if (userAct != null && (userAct.getRol() == RolUsuario.SUPERADMIN || userAct.getRol() == RolUsuario.GERENTE)) {
             btnArchivar = new BotonEstilizado("Archivar Vehículo", Estilos.ROJO);
-            btnArchivar.setAlignmentX(Component.LEFT_ALIGNMENT);
-            btnArchivar.setMaximumSize(new Dimension(280, 40));
+            btnArchivar.setPreferredSize(new Dimension(170, 32));
             btnArchivar.addActionListener(e -> {
                 Vehiculo sel = listaVehiculos.getSelectedValue();
                 if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
                 boolean esActivo = sel.isActivo();
-                String msg = esActivo 
-                    ? "¿Archivar vehículo " + sel.getPlacas() + "?\n(Se ocultará para empleados, pero tú podrás seguir viéndolo aquí)"
-                    : "¿Restaurar vehículo " + sel.getPlacas() + "?\n(Volverá a ser visible para todos los roles)";
+                String msg = esActivo
+                    ? "¿Archivar vehículo " + sel.getPlacas() + "?\n(Quedará atenuado para todos, solo admins pueden restaurarlo)"
+                    : "¿Restaurar vehículo " + sel.getPlacas() + "?\n(Volverá a mostrarse con normalidad para todos)";
                 int opt = JOptionPane.showConfirmDialog(this, msg, esActivo ? "Archivar" : "Restaurar", JOptionPane.YES_NO_OPTION);
                 if (opt == JOptionPane.YES_OPTION) {
                     try {
@@ -275,10 +283,10 @@ public class PanelVehiculos extends JPanel implements Refrescable {
                     }
                 }
             });
-            panel.add(btnArchivar);
+            barra.add(btnArchivar);
         }
 
-        return panel;
+        return barra;
     }
 
     private JTextField campo(JPanel panel, String etiqueta) {
@@ -301,10 +309,9 @@ public class PanelVehiculos extends JPanel implements Refrescable {
             for (Cliente c : clienteDAO.listarTodos()) comboCliente.addItem(c);
         }
         modeloLista.clear();
-        Usuario userAct = Sesion.getUsuarioActual();
-        boolean verArchivados = userAct != null && (userAct.getRol() == RolUsuario.SUPERADMIN || userAct.getRol() == RolUsuario.GERENTE);
-        
-        for (Vehiculo v : vehiculoDAO.listarTodos(verArchivados)) {
+        // Siempre cargamos TODOS los vehículos (activos y archivados)
+        // Los archivados se muestran atenuados para todos los roles
+        for (Vehiculo v : vehiculoDAO.listarTodos(true)) {
             modeloLista.addElement(v);
         }
     }

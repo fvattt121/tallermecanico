@@ -80,6 +80,21 @@ public class MecanicoDAO {
         return lista;
     }
 
+    /** Lista mecánicos activos + opcionalmente los archivados. */
+    public List<Mecanico> listarTodosConArchivados(boolean incluirArchivados) {
+        List<Mecanico> lista = new ArrayList<>();
+        String sql = incluirArchivados
+            ? "SELECT * FROM mecanicos ORDER BY activo DESC, nombre"
+            : "SELECT * FROM mecanicos WHERE activo = 1 ORDER BY nombre";
+        try (Statement st = ConexionBD.getConexion().createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) lista.add(mapear(rs));
+        } catch (SQLException e) {
+            throw new RuntimeException("Error al listar mecánicos con archivados", e);
+        }
+        return lista;
+    }
+
     /** Mecánicos activos que aún NO tienen cuenta de usuario activa vinculada. */
     public List<Mecanico> listarSinCuenta() {
         List<Mecanico> lista = new ArrayList<>();
@@ -112,8 +127,10 @@ public class MecanicoDAO {
     }
 
     private Mecanico mapear(ResultSet rs) throws SQLException {
-        return new Mecanico(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
+        Mecanico m = new Mecanico(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
             rs.getString("email"), rs.getString("especialidad"), rs.getInt("disponible") == 1);
+        m.setActivo(rs.getInt("activo") == 1);
+        return m;
     }
 
     public void actualizar(Mecanico m) {
@@ -146,13 +163,21 @@ public class MecanicoDAO {
     }
 
     public void eliminar(int id) {
-        String sql = "UPDATE mecanicos SET activo = 0, disponible = 0 WHERE id = ?";
+        cambiarEstadoActivo(id, false);
+    }
+
+    /** Archiva o restaura un mecánico (borrado lógico). */
+    public void cambiarEstadoActivo(int id, boolean activo) {
+        String sql = "UPDATE mecanicos SET activo = ?, disponible = ? WHERE id = ?";
         try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {
-            ps.setInt(1, id);
+            ps.setInt(1, activo ? 1 : 0);
+            ps.setInt(2, activo ? 1 : 0); // Si se restaura, vuelve a estar disponible
+            ps.setInt(3, id);
             ps.executeUpdate();
-            bitacoraDAO.registrar("ELIMINAR_LOGICO", "Mecánico deshabilitado/ocultado (id " + id + ")");
+            String accion = activo ? "RESTAURAR" : "ELIMINAR_LOGICO";
+            bitacoraDAO.registrar(accion, "Mecánico id=" + id + " activo=" + activo);
         } catch (SQLException e) {
-            throw new RuntimeException("Error al desactivar mecánico", e);
+            throw new RuntimeException("Error al cambiar estado activo de mecánico", e);
         }
     }
 }

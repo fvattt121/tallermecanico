@@ -164,10 +164,11 @@ public class InventarioVisualDialog extends JDialog {
         if (rutaImagenAuto != null && new java.io.File(rutaImagenAuto).exists()) {
             try {
                 ImageIcon icon = new ImageIcon(rutaImagenAuto);
-                Image img = icon.getImage().getScaledInstance(160, 100, Image.SCALE_SMOOTH);
+                Image img = icon.getImage().getScaledInstance(200, 120, Image.SCALE_SMOOTH);
                 JLabel lblFoto = new JLabel(new ImageIcon(img));
-                lblFoto.setAlignmentX(Component.LEFT_ALIGNMENT);
+                lblFoto.setAlignmentX(Component.CENTER_ALIGNMENT);
                 lblFoto.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+                pnlLeft.add(Box.createVerticalStrut(6));
                 pnlLeft.add(lblFoto);
                 pnlLeft.add(Box.createVerticalStrut(10));
             } catch (Exception e) {

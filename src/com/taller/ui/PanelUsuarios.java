@@ -55,6 +55,30 @@ public class PanelUsuarios extends JPanel implements Refrescable {
         tabla.getTableHeader().setForeground(Color.WHITE);
         tabla.setSelectionBackground(Estilos.AZUL_MEDIO);
         tabla.setSelectionForeground(Color.WHITE);
+        // Renderer para destacar usuarios archivados en rojo
+        tabla.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(
+                    JTable t, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+                super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, col);
+                // La columna 3 indica si está activo
+                boolean archivado = false;
+                if (t.getColumnCount() > 3) {
+                    Object actObj = t.getValueAt(row, 3);
+                    archivado = actObj instanceof Boolean && !(Boolean) actObj;
+                }
+                if (!isSelected) {
+                    if (archivado) {
+                        setBackground(new Color(255, 220, 220));
+                        setForeground(new Color(150, 30, 30));
+                    } else {
+                        setBackground(row % 2 == 0 ? Color.WHITE : new Color(245, 248, 255));
+                        setForeground(Color.BLACK);
+                    }
+                }
+                return this;
+            }
+        });
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createLineBorder(new Color(200, 210, 225)));
         add(scroll, BorderLayout.CENTER);
@@ -130,9 +154,9 @@ public class PanelUsuarios extends JPanel implements Refrescable {
         botones.add(btnCrear);
 
         if (esSuperAdmin) {
-            BotonEstilizado btnEliminar = new BotonEstilizado("Eliminar seleccionada", Estilos.ROJO);
-            btnEliminar.addActionListener(e -> eliminarCuenta());
-            botones.add(btnEliminar);
+            BotonEstilizado btnArchivarUsr = new BotonEstilizado("Archivar/Restaurar", Estilos.ROJO);
+            btnArchivarUsr.addActionListener(e -> archivarCuenta());
+            botones.add(btnArchivarUsr);
         }
 
         contenedor.add(botones, BorderLayout.SOUTH);
@@ -208,48 +232,72 @@ public class PanelUsuarios extends JPanel implements Refrescable {
         }
     }
 
-    private void eliminarCuenta() {
+    private void archivarCuenta() {
         Usuario actual = Sesion.getUsuarioActual();
         if (actual.getRol() != RolUsuario.SUPERADMIN) {
             JOptionPane.showMessageDialog(this,
-                "Solo el Super Administrador puede eliminar cuentas de usuario.",
+                "Solo el Super Administrador puede archivar cuentas de usuario.",
                 "Acceso denegado", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         int row = tabla.getSelectedRow();
         if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Selecciona un usuario de la tabla para eliminar.", "Sin selección", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Selecciona un usuario de la tabla para archivar/restaurar.", "Sin selección", JOptionPane.WARNING_MESSAGE);
             return;
         }
         int id = (int) modeloTabla.getValueAt(row, 0);
         String usr = (String) modeloTabla.getValueAt(row, 1);
-        String rolStr = (String) modeloTabla.getValueAt(row, 2);
 
-        // Nadie puede eliminarse a sí mismo
+        // Nadie puede archivarse a sí mismo
         if (id == actual.getId()) {
-            JOptionPane.showMessageDialog(this, "No puedes eliminar tu propia cuenta.", "Operación no permitida", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "No puedes archivarte a ti mismo.", "Operación no permitida", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        int opt = JOptionPane.showConfirmDialog(this,
-            "¿Desactivar/Ocultar la cuenta de " + usr + " (" + rolStr + ")?\nEl usuario ya no podrá iniciar sesión y quedará oculto en el sistema.",
-            "Confirmar borrado lógico", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        // Detectar si está activo actualmente
+        boolean estaActivo = modeloTabla.getColumnCount() > 3
+            ? (Boolean) modeloTabla.getValueAt(row, 3)
+            : true;
+
+        String accion = estaActivo ? "Archivar" : "Restaurar";
+        String msg = estaActivo
+            ? "¿Archivar la cuenta de " + usr + "?\nEl usuario no podrá iniciar sesión y quedará visible como archivada."
+            : "¿Restaurar la cuenta de " + usr + "?\n(Volverá a poder iniciar sesión.)"
+;
+        int opt = JOptionPane.showConfirmDialog(this, msg, accion, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (opt == JOptionPane.YES_OPTION) {
-            usuarioDAO.eliminar(id);
-            JOptionPane.showMessageDialog(this, "Cuenta desactivada u ocultada correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            usuarioDAO.cambiarEstadoActivo(id, !estaActivo);
+            JOptionPane.showMessageDialog(this, 
+                estaActivo ? "Cuenta archivada correctamente." : "Cuenta restaurada correctamente.",
+                "Éxito", JOptionPane.INFORMATION_MESSAGE);
             refrescar();
         }
+    }
+
+    private void eliminarCuenta() {
+        // Mantener por compatibilidad, redirige a archivarCuenta
+        archivarCuenta();
     }
 
     @Override
     public void refrescar() {
         modeloTabla.setRowCount(0);
-        List<Usuario> lista = usuarioDAO.listarTodos();
+        Usuario sesion = Sesion.getUsuarioActual();
+        boolean esAdmin = sesion != null && sesion.getRol() == RolUsuario.SUPERADMIN;
+        // Admin ve TODOS (activos + archivados), otros solo activos
+        List<Usuario> lista = usuarioDAO.listarTodos(esAdmin);
         for (Usuario u : lista) {
+            String nombreMostrar = u.isActivo() ? u.getUsername() : "[Archivado] " + u.getUsername();
             modeloTabla.addRow(new Object[]{
-                u.getId(), u.getUsername(), MainDashboard.etiquetaRol(u.getRol())
+                u.getId(), nombreMostrar, MainDashboard.etiquetaRol(u.getRol()), u.isActivo()
             });
+        }
+        // Ocultar columna 'activo' (es solo para el renderer)
+        if (tabla.getColumnCount() > 3) {
+            tabla.getColumnModel().getColumn(3).setMinWidth(0);
+            tabla.getColumnModel().getColumn(3).setMaxWidth(0);
+            tabla.getColumnModel().getColumn(3).setWidth(0);
         }
     }
 }

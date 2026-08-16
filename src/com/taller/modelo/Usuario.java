@@ -11,6 +11,7 @@ public class Usuario {
     private String claveHash;
     private RolUsuario rol;
     private Integer personaId; // referencia a Cliente o Mecanico (puede ser null para admin)
+    private boolean activo = true;
 
     public Usuario(int id, String username, String claveHash, RolUsuario rol, Integer personaId) {
         this.id = id;
@@ -18,6 +19,14 @@ public class Usuario {
         this.claveHash = claveHash;
         this.rol = rol;
         this.personaId = personaId;
+    }
+
+    public boolean isActivo() {
+        return activo;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
     }
 
     public int getId() {

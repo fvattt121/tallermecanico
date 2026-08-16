@@ -15,6 +15,8 @@ public abstract class Persona {
     private String nombre;
     private String telefono;
     private String email;
+    /** Borrado lógico: false = archivado/oculto, true = activo. */
+    private boolean activo = true;
 
     public Persona(int id, String nombre, String telefono, String email) {
         this.id = id;
@@ -56,6 +58,14 @@ public abstract class Persona {
 
     public void setEmail(String email) {
         this.email = email == null ? "" : email.trim();
+    }
+
+    public boolean isActivo() {
+        return activo;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
     }
 
     /**

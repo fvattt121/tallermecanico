@@ -8,6 +8,7 @@ import com.taller.modelo.Mecanico;
 import com.taller.modelo.Persona;
 import com.taller.modelo.RolUsuario;
 import com.taller.modelo.Usuario;
+import com.taller.util.Sesion;
 
 import javax.swing.*;
 import java.awt.*;
@@ -56,7 +57,19 @@ public class PanelPersonas extends JPanel implements Refrescable {
         add(titulo, BorderLayout.NORTH);
 
         lista.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            boolean archivado = false;
+            try {
+                // Detectar si la persona está archivada mirando activo
+                if (value instanceof Cliente) {
+                    archivado = !((Cliente) value).isActivo();
+                } else if (value instanceof Mecanico) {
+                    archivado = !((Mecanico) value).isActivo();
+                }
+            } catch (Exception ignored) {}
+
             String texto = value.resumen();
+            if (archivado) texto = "[Archivado] " + texto;
+
             if (value instanceof Cliente) {
                 try {
                     List<com.taller.modelo.Vehiculo> vehs = new com.taller.dao.VehiculoDAO().listarPorCliente(value.getId());
@@ -87,8 +100,15 @@ public class PanelPersonas extends JPanel implements Refrescable {
             JLabel l = new JLabel("  " + texto);
             l.setOpaque(true);
             l.setFont(Estilos.NORMAL);
-            l.setBackground(isSelected ? Estilos.AZUL_MEDIO : (index % 2 == 0 ? Color.WHITE : Estilos.GRIS_CLARO));
-            l.setForeground(isSelected ? Color.WHITE : Color.BLACK);
+
+            if (archivado) {
+                // Archivado: fondo rojo claro para todos los roles que pueden verlo
+                l.setBackground(isSelected ? new Color(180, 60, 60) : new Color(255, 220, 220));
+                l.setForeground(isSelected ? Color.WHITE : new Color(150, 30, 30));
+            } else {
+                l.setBackground(isSelected ? Estilos.AZUL_MEDIO : (index % 2 == 0 ? Color.WHITE : Estilos.GRIS_CLARO));
+                l.setForeground(isSelected ? Color.WHITE : Color.BLACK);
+            }
             l.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
             return l;
         });
@@ -284,18 +304,22 @@ public class PanelPersonas extends JPanel implements Refrescable {
         });
         pnlBotonesCliente.add(btnActCliente);
 
-        BotonEstilizado btnEliCliente = new BotonEstilizado("Ocultar", Estilos.ROJO);
+        BotonEstilizado btnEliCliente = new BotonEstilizado("Archivar", Estilos.ROJO);
         btnEliCliente.addActionListener(e -> {
             Persona p = lista.getSelectedValue();
             if (!(p instanceof Cliente c)) {
                 JOptionPane.showMessageDialog(this, "Selecciona un cliente de la lista");
                 return;
             }
-            int opt = JOptionPane.showConfirmDialog(this, "¿Desactivar/Ocultar al cliente " + c.getNombre() + "?", "Confirmar borrado lógico", JOptionPane.YES_NO_OPTION);
+            boolean estaActivo = c.isActivo();
+            String accion = estaActivo ? "Archivar" : "Restaurar";
+            String msg = estaActivo
+                ? "¿Archivar al cliente " + c.getNombre() + "?\n(Sus vehículos y órdenes también se archivarán en cascada.)"
+                : "¿Restaurar al cliente " + c.getNombre() + "?\n(Sus datos volverán a ser visibles con normalidad.)";
+            int opt = JOptionPane.showConfirmDialog(this, msg, accion, JOptionPane.YES_NO_OPTION);
             if (opt == JOptionPane.YES_OPTION) {
                 try {
-                    usuarioDAO.desvincularPersona(RolUsuario.CLIENTE, c.getId());
-                    clienteDAO.eliminar(c.getId());
+                    clienteDAO.cambiarEstadoActivo(c.getId(), !estaActivo);
                     limpiarCamposCliente();
                     refrescar();
                 } catch (Exception ex) {
@@ -449,24 +473,29 @@ public class PanelPersonas extends JPanel implements Refrescable {
         });
         pnlBotonesMecanico.add(btnActMec);
 
-        BotonEstilizado btnEliMec = new BotonEstilizado("Ocultar", Estilos.ROJO);
+        BotonEstilizado btnEliMec = new BotonEstilizado("Archivar", Estilos.ROJO);
         btnEliMec.addActionListener(e -> {
             Persona p = lista.getSelectedValue();
             if (!(p instanceof Mecanico m)) {
                 JOptionPane.showMessageDialog(this, "Selecciona un mecánico de la lista");
                 return;
             }
-
-            String mensajeConfirm = "¿Desactivar/Ocultar al mecánico " + m.getNombre() + "?";
-            if (mecanicoDAO.tieneOrdenesActivas(m.getId())) {
-                mensajeConfirm = "⚠ El mecánico " + m.getNombre() + " tiene órdenes EN REVISIÓN o EN ESPERA.\n" +
-                    "Si lo desactivas, quedará oculto en el sistema.\n\n¿Confirmas desactivarlo?";
+            boolean estaActivo = m.isActivo();
+            String accion = estaActivo ? "Archivar" : "Restaurar";
+            String msg;
+            if (estaActivo) {
+                msg = "¿Archivar al mecánico " + m.getNombre() + "?\n(Quedará archivado y atenuado en el sistema.)";
+                if (mecanicoDAO.tieneOrdenesActivas(m.getId())) {
+                    msg = "⚠ El mecánico " + m.getNombre() + " tiene órdenes EN REVISIÓN o EN ESPERA.\n" +
+                        "Si lo archivas, quedará atenuado en el sistema.\n\n¿Confirmas archivarlo?";
+                }
+            } else {
+                msg = "¿Restaurar al mecánico " + m.getNombre() + "?\n(Volverá a estar activo en el sistema.)";
             }
-            int opt = JOptionPane.showConfirmDialog(this, mensajeConfirm, "Confirmar borrado lógico", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            int opt = JOptionPane.showConfirmDialog(this, msg, accion, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
             if (opt == JOptionPane.YES_OPTION) {
                 try {
-                    usuarioDAO.desvincularPersona(RolUsuario.MECANICO, m.getId());
-                    mecanicoDAO.eliminar(m.getId());
+                    mecanicoDAO.cambiarEstadoActivo(m.getId(), !estaActivo);
                     limpiarCamposMecanico();
                     refrescar();
                 } catch (Exception ex) {
@@ -560,9 +589,13 @@ public class PanelPersonas extends JPanel implements Refrescable {
     @Override
     public void refrescar() {
         modeloLista.clear();
+        Usuario sesion = Sesion.getUsuarioActual();
+        boolean esAdmin = sesion != null && (sesion.getRol() == RolUsuario.SUPERADMIN || sesion.getRol() == RolUsuario.GERENTE);
+
         List<Persona> todos = new ArrayList<>();
-        todos.addAll(clienteDAO.listarTodos());
-        todos.addAll(mecanicoDAO.listarTodos());
+        // Cargar todos (incluyendo archivados para admin/gerente)
+        todos.addAll(clienteDAO.listarTodosConArchivados(esAdmin));
+        todos.addAll(mecanicoDAO.listarTodosConArchivados(esAdmin));
         for (Persona p : todos) {
             modeloLista.addElement(p);
         }

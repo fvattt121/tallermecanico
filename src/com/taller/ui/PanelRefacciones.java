@@ -208,10 +208,9 @@ public class PanelRefacciones extends JPanel implements Refrescable {
     @Override
     public void refrescar() {
         modelo.setRowCount(0);
-        Usuario u = Sesion.getUsuarioActual();
-        boolean verArchivados = u != null && (u.getRol() == RolUsuario.SUPERADMIN || u.getRol() == RolUsuario.GERENTE);
-        
-        List<Refaccion> lista = refaccionDAO.listarTodas(verArchivados);
+        // Siempre mostramos TODAS las refacciones para todos los roles.
+        // Las archivadas aparecen en gris/atenuado para indicar que están inactivas.
+        List<Refaccion> lista = refaccionDAO.listarTodas(true);
         for (Refaccion r : lista) {
             String nombreMostrar = r.isActivo() ? r.getNombre() : "[Archivado] " + r.getNombre();
             modelo.addRow(new Object[]{

@@ -46,6 +46,21 @@ public class ClienteDAO {
         return lista;
     }
 
+    /** Lista clientes activos + opcionalmente los archivados. */
+    public List<Cliente> listarTodosConArchivados(boolean incluirArchivados) {
+        List<Cliente> lista = new ArrayList<>();
+        String sql = incluirArchivados
+            ? "SELECT * FROM clientes ORDER BY activo DESC, nombre"
+            : "SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre";
+        try (Statement st = ConexionBD.getConexion().createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) lista.add(mapear(rs));
+        } catch (SQLException e) {
+            throw new RuntimeException("Error al listar clientes con archivados", e);
+        }
+        return lista;
+    }
+
     /** Clientes activos que aún NO tienen cuenta de usuario activa vinculada. */
     public List<Cliente> listarSinCuenta() {
         List<Cliente> lista = new ArrayList<>();
@@ -130,8 +145,10 @@ public class ClienteDAO {
 
 
     private Cliente mapear(ResultSet rs) throws SQLException {
-        return new Cliente(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
+        Cliente c = new Cliente(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
             rs.getString("email"), rs.getString("direccion"));
+        c.setActivo(rs.getInt("activo") == 1);
+        return c;
     }
 
     public void actualizar(Cliente c) {
@@ -169,25 +186,31 @@ public class ClienteDAO {
     }
 
     public void eliminar(int id) {
-        String sqlCliente = "UPDATE clientes SET activo = 0 WHERE id = ?";
-        String sqlVehiculos = "UPDATE vehiculos SET activo = 0 WHERE cliente_id = ?";
-        String sqlOrdenes = "UPDATE ordenes SET activo = 0 WHERE vehiculo_id IN (SELECT id FROM vehiculos WHERE cliente_id = ?)";
+        cambiarEstadoActivo(id, false);
+    }
+
+    /**
+     * Archiva o restaura un cliente y todo lo asociado en cascada:
+     * vehiculos -> ordenes.
+     */
+    public void cambiarEstadoActivo(int id, boolean activo) {
+        String sqlCliente   = "UPDATE clientes SET activo = ? WHERE id = ?";
+        String sqlVehiculos = "UPDATE vehiculos SET activo = ? WHERE cliente_id = ?";
+        String sqlOrdenes   = "UPDATE ordenes SET activo = ? WHERE vehiculo_id IN (SELECT id FROM vehiculos WHERE cliente_id = ?)";
         try (PreparedStatement psC = ConexionBD.getConexion().prepareStatement(sqlCliente);
              PreparedStatement psV = ConexionBD.getConexion().prepareStatement(sqlVehiculos);
              PreparedStatement psO = ConexionBD.getConexion().prepareStatement(sqlOrdenes)) {
-            
-            psC.setInt(1, id);
-            psC.executeUpdate();
-            
-            psO.setInt(1, id);
-            psO.executeUpdate();
-            
-            psV.setInt(1, id);
-            psV.executeUpdate();
 
-            bitacoraDAO.registrar("ELIMINAR_LOGICO", "Cliente deshabilitado (id " + id + ") y asociados archivados en cascada");
+            int val = activo ? 1 : 0;
+
+            psO.setInt(1, val); psO.setInt(2, id); psO.executeUpdate();
+            psV.setInt(1, val); psV.setInt(2, id); psV.executeUpdate();
+            psC.setInt(1, val); psC.setInt(2, id); psC.executeUpdate();
+
+            String accion = activo ? "RESTAURAR" : "ELIMINAR_LOGICO";
+            bitacoraDAO.registrar(accion, "Cliente id=" + id + " activo=" + activo + " (cascada vehiculos+ordenes)");
         } catch (SQLException e) {
-            throw new RuntimeException("Error al desactivar cliente y cascada", e);
+            throw new RuntimeException("Error al cambiar estado activo de cliente y cascada", e);
         }
     }
 }
