@@ -304,7 +304,7 @@ public class PanelPersonas extends JPanel implements Refrescable {
         });
         pnlBotonesCliente.add(btnActCliente);
 
-        BotonEstilizado btnEliCliente = new BotonEstilizado("Archivar", Estilos.ROJO);
+        BotonEstilizado btnEliCliente = new BotonEstilizado("Archivar / Restaurar", Estilos.ROJO);
         btnEliCliente.addActionListener(e -> {
             Persona p = lista.getSelectedValue();
             if (!(p instanceof Cliente c)) {
@@ -473,7 +473,7 @@ public class PanelPersonas extends JPanel implements Refrescable {
         });
         pnlBotonesMecanico.add(btnActMec);
 
-        BotonEstilizado btnEliMec = new BotonEstilizado("Archivar", Estilos.ROJO);
+        BotonEstilizado btnEliMec = new BotonEstilizado("Archivar / Restaurar", Estilos.ROJO);
         btnEliMec.addActionListener(e -> {
             Persona p = lista.getSelectedValue();
             if (!(p instanceof Mecanico m)) {

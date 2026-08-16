@@ -165,4 +165,26 @@ public class VehiculoDAO {
         cambiarEstadoActivo(id, false);
     }
 
+    /**
+     * Verifica si el cliente propietario del vehículo está archivado.
+     * Se usa para bloquear el restaurado del vehículo desde el panel de recepción
+     * sin antes haber restaurado al cliente en el panel correspondiente.
+     * @param vehiculoId ID del vehículo
+     * @return nombre del cliente si está archivado, null si el cliente está activo
+     */
+    public String getNombreClienteSiArchivado(int vehiculoId) {
+        String sql = "SELECT c.nombre FROM clientes c "
+                   + "JOIN vehiculos v ON v.cliente_id = c.id "
+                   + "WHERE v.id = ? AND c.activo = 0";
+        try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {
+            ps.setInt(1, vehiculoId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("nombre");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al verificar cliente archivado: " + e.getMessage());
+        }
+        return null; // cliente activo, se puede restaurar
+    }
+
 }

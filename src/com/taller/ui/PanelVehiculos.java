@@ -55,9 +55,19 @@ public class PanelVehiculos extends JPanel implements Refrescable {
                         btnArchivar.setText("Archivar Vehículo");
                         btnArchivar.setBackground(Estilos.ROJO);
                     } else {
-                        btnArchivar.setText("Restaurar Vehículo");
-                        btnArchivar.setBackground(Estilos.VERDE);
+                        // Si el cliente está archivado, el texto indica que está bloqueado
+                        String clienteArch = vehiculoDAO.getNombreClienteSiArchivado(sel.getId());
+                        if (clienteArch != null) {
+                            btnArchivar.setText("🚫 Restaurar (cliente archivado)");
+                            btnArchivar.setBackground(new Color(120, 120, 120));
+                        } else {
+                            btnArchivar.setText("Restaurar Vehículo");
+                            btnArchivar.setBackground(Estilos.VERDE);
+                        }
                     }
+                } else if (btnArchivar != null) {
+                    btnArchivar.setText("Archivar / Restaurar");
+                    btnArchivar.setBackground(Estilos.ROJO);
                 }
             }
         });
@@ -261,18 +271,37 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         });
         barra.add(btnInventario);
 
-        // Botón Archivar: solo SUPERADMIN y GERENTE
+        // Botón Archivar/Restaurar: solo SUPERADMIN y GERENTE
         Usuario userAct = Sesion.getUsuarioActual();
         if (userAct != null && (userAct.getRol() == RolUsuario.SUPERADMIN || userAct.getRol() == RolUsuario.GERENTE)) {
-            btnArchivar = new BotonEstilizado("Archivar Vehículo", Estilos.ROJO);
-            btnArchivar.setPreferredSize(new Dimension(170, 32));
+            btnArchivar = new BotonEstilizado("Archivar / Restaurar", Estilos.ROJO);
+            btnArchivar.setPreferredSize(new Dimension(185, 32));
             btnArchivar.addActionListener(e -> {
                 Vehiculo sel = listaVehiculos.getSelectedValue();
                 if (sel == null) { JOptionPane.showMessageDialog(this, "Selecciona un vehículo de la lista"); return; }
                 boolean esActivo = sel.isActivo();
+
+                // REGLA DE NEGOCIO: si el vehículo está archivado, verificar si su cliente padre
+                // también está archivado. Si es así, no se puede restaurar el vehículo aquí.
+                if (!esActivo) {
+                    String nombreCliente = vehiculoDAO.getNombreClienteSiArchivado(sel.getId());
+                    if (nombreCliente != null) {
+                        JOptionPane.showMessageDialog(this,
+                            "No puedes restaurar el vehículo '" + sel.getPlacas() + "' directamente.\n\n"
+                            + "El cliente '" + nombreCliente + "' está archivado.\n"
+                            + "Para restaurar este vehículo debes:\n"
+                            + "  1. Ir a 'Clientes y mecánicos'\n"
+                            + "  2. Restaurar al cliente '" + nombreCliente + "'\n"
+                            + "  3. Los vehículos y órdenes se restaurarán automáticamente.",
+                            "Restauración bloqueada - Cliente archivado",
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                }
+
                 String msg = esActivo
-                    ? "¿Archivar vehículo " + sel.getPlacas() + "?\n(Quedará atenuado para todos, solo admins pueden restaurarlo)"
-                    : "¿Restaurar vehículo " + sel.getPlacas() + "?\n(Volverá a mostrarse con normalidad para todos)";
+                    ? "¿Archivar vehículo " + sel.getPlacas() + "?\n(Quedará archivado junto con sus órdenes. Solo admins pueden restaurarlo.)"
+                    : "¿Restaurar vehículo " + sel.getPlacas() + "?\n(Volverá a mostrarse con normalidad junto con sus órdenes.)";
                 int opt = JOptionPane.showConfirmDialog(this, msg, esActivo ? "Archivar" : "Restaurar", JOptionPane.YES_NO_OPTION);
                 if (opt == JOptionPane.YES_OPTION) {
                     try {

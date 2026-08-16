@@ -118,7 +118,7 @@ public class PanelRefacciones extends JPanel implements Refrescable {
             }
         });
 
-        btnArchivar = new BotonEstilizado("Archivar", Estilos.ROJO);
+        btnArchivar = new BotonEstilizado("Archivar / Restaurar", Estilos.ROJO);
         btnArchivar.addActionListener(e -> {
             int row = tabla.getSelectedRow();
             if (row == -1 || refaccionSeleccionada == null) {
@@ -126,9 +126,15 @@ public class PanelRefacciones extends JPanel implements Refrescable {
                 return;
             }
             boolean esActivo = refaccionSeleccionada.isActivo();
-            String msg = esActivo 
-                ? "¿Archivar esta refacción?\n(Se ocultará para empleados y mecánicos, pero tú podrás seguir viéndola aquí)"
-                : "¿Restaurar esta refacción?\n(Volverá a ser visible para todos los roles)";
+            String msg;
+            if (esActivo) {
+                msg = "¿Archivar la refacción '" + refaccionSeleccionada.getNombre() + "'?\n"
+                    + "(Quedará archivada. Solo admins y gerentes pueden restaurarla.)";
+            } else {
+                msg = "¿Restaurar la refacción '" + refaccionSeleccionada.getNombre() + "'?\n"
+                    + "(Nota: si fue archivada automáticamente por cascada de una orden/cliente,\n"
+                    + " asegúrate de haber restaurado antes al cliente correspondiente.)";
+            }
             int opt = JOptionPane.showConfirmDialog(this, msg, esActivo ? "Archivar" : "Restaurar", JOptionPane.YES_NO_OPTION);
             if (opt == JOptionPane.YES_OPTION) {
                 try {
@@ -201,7 +207,7 @@ public class PanelRefacciones extends JPanel implements Refrescable {
         nombre.setText("");
         precio.setText("");
         stock.setText("");
-        btnArchivar.setText("Archivar");
+        btnArchivar.setText("Archivar / Restaurar");
         btnArchivar.setBackground(Estilos.ROJO);
     }
 

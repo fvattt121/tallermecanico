@@ -1,6 +1,8 @@
 package com.taller.ui;
 
 import com.taller.dao.BitacoraDAO;
+import com.taller.dao.ClienteDAO;
+import com.taller.dao.MecanicoDAO;
 import com.taller.dao.UsuarioDAO;
 import com.taller.modelo.RolUsuario;
 import com.taller.modelo.Usuario;
@@ -25,10 +27,14 @@ import java.util.List;
 public class PanelUsuarios extends JPanel implements Refrescable {
 
     private final UsuarioDAO usuarioDAO = new UsuarioDAO();
+    private final ClienteDAO clienteDAO = new ClienteDAO();
+    private final MecanicoDAO mecanicoDAO = new MecanicoDAO();
     private final BitacoraDAO bitacoraDAO = new BitacoraDAO();
 
+    // Columnas visibles: ID, Usuario, Rol
+    // Columnas ocultas: activo(col3), personaId(col4), rolEnum(col5)
     private final DefaultTableModel modeloTabla = new DefaultTableModel(
-        new Object[]{"ID", "Usuario", "Rol"}, 0) {
+        new Object[]{"ID", "Usuario", "Rol", "_activo", "_personaId", "_rol"}, 0) {
         @Override public boolean isCellEditable(int r, int c) { return false; }
     };
     private final JTable tabla = new JTable(modeloTabla);
@@ -61,7 +67,6 @@ public class PanelUsuarios extends JPanel implements Refrescable {
             public java.awt.Component getTableCellRendererComponent(
                     JTable t, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, col);
-                // La columna 3 indica si está activo
                 boolean archivado = false;
                 if (t.getColumnCount() > 3) {
                     Object actObj = t.getValueAt(row, 3);
@@ -246,8 +251,14 @@ public class PanelUsuarios extends JPanel implements Refrescable {
             JOptionPane.showMessageDialog(this, "Selecciona un usuario de la tabla para archivar/restaurar.", "Sin selección", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        int id = (int) modeloTabla.getValueAt(row, 0);
-        String usr = (String) modeloTabla.getValueAt(row, 1);
+
+        int id          = (int) modeloTabla.getValueAt(row, 0);
+        String usr      = (String) modeloTabla.getValueAt(row, 1);
+        boolean estaActivo = modeloTabla.getColumnCount() > 3
+            ? (Boolean) modeloTabla.getValueAt(row, 3)
+            : true;
+        Object personaIdObj = modeloTabla.getColumnCount() > 4 ? modeloTabla.getValueAt(row, 4) : null;
+        Object rolObj       = modeloTabla.getColumnCount() > 5 ? modeloTabla.getValueAt(row, 5) : null;
 
         // Nadie puede archivarse a sí mismo
         if (id == actual.getId()) {
@@ -255,24 +266,54 @@ public class PanelUsuarios extends JPanel implements Refrescable {
             return;
         }
 
-        // Detectar si está activo actualmente
-        boolean estaActivo = modeloTabla.getColumnCount() > 3
-            ? (Boolean) modeloTabla.getValueAt(row, 3)
-            : true;
+        RolUsuario rolUsuario = (rolObj instanceof RolUsuario) ? (RolUsuario) rolObj : null;
+        Integer personaId     = (personaIdObj instanceof Integer) ? (Integer) personaIdObj : null;
 
+        // Construir mensaje de confirmación que explique el impacto en cascada
         String accion = estaActivo ? "Archivar" : "Restaurar";
-        String msg = estaActivo
-            ? "¿Archivar la cuenta de " + usr + "?\nEl usuario no podrá iniciar sesión y quedará visible como archivada."
-            : "¿Restaurar la cuenta de " + usr + "?\n(Volverá a poder iniciar sesión.)"
-;
-        int opt = JOptionPane.showConfirmDialog(this, msg, accion, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-        if (opt == JOptionPane.YES_OPTION) {
-            usuarioDAO.cambiarEstadoActivo(id, !estaActivo);
-            JOptionPane.showMessageDialog(this, 
-                estaActivo ? "Cuenta archivada correctamente." : "Cuenta restaurada correctamente.",
-                "Éxito", JOptionPane.INFORMATION_MESSAGE);
-            refrescar();
+        String impactoCascada = "";
+        if (personaId != null && rolUsuario != null) {
+            if (rolUsuario == RolUsuario.CLIENTE) {
+                impactoCascada = estaActivo
+                    ? "\n\n⚠ Cascada: también se archivarán el cliente vinculado, sus vehículos y órdenes."
+                    : "\n\n⚠ Cascada: también se restaurará el cliente vinculado, sus vehículos y órdenes.";
+            } else if (rolUsuario == RolUsuario.MECANICO) {
+                impactoCascada = estaActivo
+                    ? "\n\n⚠ Cascada: también se archivará el mecánico vinculado."
+                    : "\n\n⚠ Cascada: también se restaurará el mecánico vinculado.";
+            }
         }
+
+        String msg = estaActivo
+            ? "¿Archivar la cuenta '" + usr + "'? El usuario no podrá iniciar sesión." + impactoCascada
+            : "¿Restaurar la cuenta '" + usr + "'? Volverá a poder iniciar sesión." + impactoCascada;
+
+        int opt = JOptionPane.showConfirmDialog(this, msg, accion, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (opt != JOptionPane.YES_OPTION) return;
+
+        // 1. Cambiar estado del usuario
+        usuarioDAO.cambiarEstadoActivo(id, !estaActivo);
+
+        // 2. Cascada a persona vinculada (CLIENTE o MECANICO)
+        if (personaId != null && rolUsuario != null) {
+            try {
+                if (rolUsuario == RolUsuario.CLIENTE) {
+                    // Archivar/restaurar cliente en cascada (incluye vehículos y órdenes)
+                    clienteDAO.cambiarEstadoActivo(personaId, !estaActivo);
+                } else if (rolUsuario == RolUsuario.MECANICO) {
+                    mecanicoDAO.cambiarEstadoActivo(personaId, !estaActivo);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this,
+                    "Cuenta " + (estaActivo ? "archivada" : "restaurada") + ", pero hubo un error en la cascada: " + ex.getMessage(),
+                    "Advertencia", JOptionPane.WARNING_MESSAGE);
+            }
+        }
+
+        JOptionPane.showMessageDialog(this,
+            estaActivo ? "✓ Cuenta archivada correctamente." : "✓ Cuenta restaurada correctamente.",
+            "Éxito", JOptionPane.INFORMATION_MESSAGE);
+        refrescar();
     }
 
     private void eliminarCuenta() {
@@ -285,19 +326,23 @@ public class PanelUsuarios extends JPanel implements Refrescable {
         modeloTabla.setRowCount(0);
         Usuario sesion = Sesion.getUsuarioActual();
         boolean esAdmin = sesion != null && sesion.getRol() == RolUsuario.SUPERADMIN;
-        // Admin ve TODOS (activos + archivados), otros solo activos
         List<Usuario> lista = usuarioDAO.listarTodos(esAdmin);
         for (Usuario u : lista) {
             String nombreMostrar = u.isActivo() ? u.getUsername() : "[Archivado] " + u.getUsername();
             modeloTabla.addRow(new Object[]{
-                u.getId(), nombreMostrar, MainDashboard.etiquetaRol(u.getRol()), u.isActivo()
+                u.getId(),
+                nombreMostrar,
+                MainDashboard.etiquetaRol(u.getRol()),
+                u.isActivo(),          // col 3: activo (oculta, para renderer)
+                u.getPersonaId(),      // col 4: personaId (oculta, para cascada)
+                u.getRol()             // col 5: RolUsuario enum (oculta, para cascada)
             });
         }
-        // Ocultar columna 'activo' (es solo para el renderer)
-        if (tabla.getColumnCount() > 3) {
-            tabla.getColumnModel().getColumn(3).setMinWidth(0);
-            tabla.getColumnModel().getColumn(3).setMaxWidth(0);
-            tabla.getColumnModel().getColumn(3).setWidth(0);
+        // Ocultar columnas de metadatos (col 3, 4, 5)
+        for (int col = 3; col <= 5 && tabla.getColumnCount() > col; col++) {
+            tabla.getColumnModel().getColumn(col).setMinWidth(0);
+            tabla.getColumnModel().getColumn(col).setMaxWidth(0);
+            tabla.getColumnModel().getColumn(col).setWidth(0);
         }
     }
 }
