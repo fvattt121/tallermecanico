@@ -168,14 +168,22 @@ public class MecanicoDAO {
 
     /** Archiva o restaura un mecánico (borrado lógico). */
     public void cambiarEstadoActivo(int id, boolean activo) {
-        String sql = "UPDATE mecanicos SET activo = ?, disponible = ? WHERE id = ?";
-        try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {
-            ps.setInt(1, activo ? 1 : 0);
-            ps.setInt(2, activo ? 1 : 0); // Si se restaura, vuelve a estar disponible
-            ps.setInt(3, id);
-            ps.executeUpdate();
+        String sqlMecanico = "UPDATE mecanicos SET activo = ?, disponible = ? WHERE id = ?";
+        String sqlUsuario = "UPDATE usuarios SET activo = ? WHERE persona_id = ? AND rol = 'MECANICO'";
+        try (PreparedStatement psM = ConexionBD.getConexion().prepareStatement(sqlMecanico);
+             PreparedStatement psU = ConexionBD.getConexion().prepareStatement(sqlUsuario)) {
+            
+            psM.setInt(1, activo ? 1 : 0);
+            psM.setInt(2, activo ? 1 : 0); // Si se restaura, vuelve a estar disponible
+            psM.setInt(3, id);
+            psM.executeUpdate();
+            
+            psU.setInt(1, activo ? 1 : 0);
+            psU.setInt(2, id);
+            psU.executeUpdate();
+            
             String accion = activo ? "RESTAURAR" : "ELIMINAR_LOGICO";
-            bitacoraDAO.registrar(accion, "Mecánico id=" + id + " activo=" + activo);
+            bitacoraDAO.registrar(accion, "Mecánico id=" + id + " activo=" + activo + " (cascada usuario)");
         } catch (SQLException e) {
             throw new RuntimeException("Error al cambiar estado activo de mecánico", e);
         }

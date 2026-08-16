@@ -197,18 +197,21 @@ public class ClienteDAO {
         String sqlCliente   = "UPDATE clientes SET activo = ? WHERE id = ?";
         String sqlVehiculos = "UPDATE vehiculos SET activo = ? WHERE cliente_id = ?";
         String sqlOrdenes   = "UPDATE ordenes SET activo = ? WHERE vehiculo_id IN (SELECT id FROM vehiculos WHERE cliente_id = ?)";
+        String sqlUsuario   = "UPDATE usuarios SET activo = ? WHERE persona_id = ? AND rol = 'CLIENTE'";
         try (PreparedStatement psC = ConexionBD.getConexion().prepareStatement(sqlCliente);
              PreparedStatement psV = ConexionBD.getConexion().prepareStatement(sqlVehiculos);
-             PreparedStatement psO = ConexionBD.getConexion().prepareStatement(sqlOrdenes)) {
+             PreparedStatement psO = ConexionBD.getConexion().prepareStatement(sqlOrdenes);
+             PreparedStatement psU = ConexionBD.getConexion().prepareStatement(sqlUsuario)) {
 
             int val = activo ? 1 : 0;
 
             psO.setInt(1, val); psO.setInt(2, id); psO.executeUpdate();
             psV.setInt(1, val); psV.setInt(2, id); psV.executeUpdate();
             psC.setInt(1, val); psC.setInt(2, id); psC.executeUpdate();
+            psU.setInt(1, val); psU.setInt(2, id); psU.executeUpdate();
 
             String accion = activo ? "RESTAURAR" : "ELIMINAR_LOGICO";
-            bitacoraDAO.registrar(accion, "Cliente id=" + id + " activo=" + activo + " (cascada vehiculos+ordenes)");
+            bitacoraDAO.registrar(accion, "Cliente id=" + id + " activo=" + activo + " (cascada vehiculos+ordenes+usuario)");
         } catch (SQLException e) {
             throw new RuntimeException("Error al cambiar estado activo de cliente y cascada", e);
         }
