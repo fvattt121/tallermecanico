@@ -139,7 +139,10 @@ public class InventarioVisualDialog extends JDialog {
         JPanel pnlLeft = new JPanel();
         pnlLeft.setLayout(new BoxLayout(pnlLeft, BoxLayout.Y_AXIS));
         pnlLeft.setBackground(Color.WHITE);
-        pnlLeft.setBorder(BorderFactory.createTitledBorder("Lista de Verificación"));
+        pnlLeft.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createTitledBorder("Lista de Verificación"),
+            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
 
         if (chkLlantas == null) chkLlantas = new JCheckBox("Llantas en buen estado");
         else chkLlantas.setText("Llantas en buen estado");
@@ -166,10 +169,16 @@ public class InventarioVisualDialog extends JDialog {
                 ImageIcon icon = new ImageIcon(rutaImagenAuto);
                 Image img = icon.getImage().getScaledInstance(200, 120, Image.SCALE_SMOOTH);
                 JLabel lblFoto = new JLabel(new ImageIcon(img));
-                lblFoto.setAlignmentX(Component.CENTER_ALIGNMENT);
                 lblFoto.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+                
+                JPanel pnlFotoWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+                pnlFotoWrapper.setBackground(Color.WHITE);
+                pnlFotoWrapper.setMaximumSize(new Dimension(Short.MAX_VALUE, 130));
+                pnlFotoWrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+                pnlFotoWrapper.add(lblFoto);
+                
                 pnlLeft.add(Box.createVerticalStrut(6));
-                pnlLeft.add(lblFoto);
+                pnlLeft.add(pnlFotoWrapper);
                 pnlLeft.add(Box.createVerticalStrut(10));
             } catch (Exception e) {
                 System.err.println("Error al cargar la imagen: " + e.getMessage());

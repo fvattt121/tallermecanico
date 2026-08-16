@@ -124,6 +124,20 @@ public class UsuarioDAO {
         return null;
     }
 
+    public Usuario buscarPorPersonaConArchivados(RolUsuario rol, int personaId) {
+        String sql = "SELECT * FROM usuarios WHERE rol = ? AND persona_id = ?";
+        try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {
+            ps.setString(1, rol.name());
+            ps.setInt(2, personaId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapear(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error al buscar usuario por persona con archivados", e);
+        }
+        return null;
+    }
+
     public void desvincularPersona(RolUsuario rol, int personaId) {
         String sql = "UPDATE usuarios SET persona_id = NULL WHERE rol = ? AND persona_id = ?";
         try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {

@@ -312,6 +312,25 @@ public class PanelPersonas extends JPanel implements Refrescable {
                 return;
             }
             boolean estaActivo = c.isActivo();
+
+            // REGLA DE NEGOCIO: si el cliente está archivado, verificar si su usuario vinculado
+            // también está archivado. Si es así, no se puede restaurar aquí directamente.
+            if (!estaActivo) {
+                Usuario usrVinc = usuarioDAO.buscarPorPersonaConArchivados(RolUsuario.CLIENTE, c.getId());
+                if (usrVinc != null && !usrVinc.isActivo()) {
+                    JOptionPane.showMessageDialog(this,
+                        "No puedes restaurar al cliente '" + c.getNombre() + "' directamente.\n\n"
+                        + "Su cuenta de usuario vinculada '" + usrVinc.getUsername() + "' está archivada.\n"
+                        + "Para restaurar a este cliente debes:\n"
+                        + "  1. Ir a 'Gestión de usuarios'\n"
+                        + "  2. Restaurar el usuario '" + usrVinc.getUsername() + "'\n"
+                        + "  3. El cliente y sus vehículos se restaurarán automáticamente.",
+                        "Restauración bloqueada - Usuario archivado",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            }
+
             String accion = estaActivo ? "Archivar" : "Restaurar";
             String msg = estaActivo
                 ? "¿Archivar al cliente " + c.getNombre() + "?\n(Sus vehículos y órdenes también se archivarán en cascada.)"
@@ -481,6 +500,25 @@ public class PanelPersonas extends JPanel implements Refrescable {
                 return;
             }
             boolean estaActivo = m.isActivo();
+
+            // REGLA DE NEGOCIO: si el mecánico está archivado, verificar si su usuario vinculado
+            // también está archivado. Si es así, no se puede restaurar aquí directamente.
+            if (!estaActivo) {
+                Usuario usrVinc = usuarioDAO.buscarPorPersonaConArchivados(RolUsuario.MECANICO, m.getId());
+                if (usrVinc != null && !usrVinc.isActivo()) {
+                    JOptionPane.showMessageDialog(this,
+                        "No puedes restaurar al mecánico '" + m.getNombre() + "' directamente.\n\n"
+                        + "Su cuenta de usuario vinculada '" + usrVinc.getUsername() + "' está archivada.\n"
+                        + "Para restaurar a este mecánico debes:\n"
+                        + "  1. Ir a 'Gestión de usuarios'\n"
+                        + "  2. Restaurar el usuario '" + usrVinc.getUsername() + "'\n"
+                        + "  3. El mecánico se restaurará automáticamente.",
+                        "Restauración bloqueada - Usuario archivado",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            }
+
             String accion = estaActivo ? "Archivar" : "Restaurar";
             String msg;
             if (estaActivo) {
