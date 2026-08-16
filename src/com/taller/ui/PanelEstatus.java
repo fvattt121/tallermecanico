@@ -237,13 +237,42 @@ public class PanelEstatus extends JPanel implements Refrescable {
             lblBienvenida.setText("Bienvenido, " + actual.getUsername() + " — " + rolLabel);
         }
 
-        try (Statement st = ConexionBD.getConexion().createStatement()) {
-            lblClientes.setText(String.valueOf(contar(st, "clientes")));
-            lblMecanicos.setText(String.valueOf(contar(st, "mecanicos")));
-            lblVehiculos.setText(String.valueOf(contar(st, "vehiculos")));
-            lblOrdenes.setText(String.valueOf(contar(st, "ordenes")));
-            lblRefacciones.setText(String.valueOf(contar(st, "refacciones")));
-            lblBitacora.setText(String.valueOf(contar(st, "bitacora")));
+        try (java.sql.PreparedStatement psC = ConexionBD.getConexion().prepareStatement(
+                "SELECT COUNT(DISTINCT c.id) FROM clientes c JOIN vehiculos v ON v.cliente_id = c.id JOIN ordenes o ON o.vehiculo_id = v.id WHERE o.mecanico_id = ? AND c.activo = 1 AND v.activo = 1 AND o.activo = 1");
+             java.sql.PreparedStatement psV = ConexionBD.getConexion().prepareStatement(
+                "SELECT COUNT(DISTINCT v.id) FROM vehiculos v JOIN ordenes o ON o.vehiculo_id = v.id WHERE o.mecanico_id = ? AND v.activo = 1 AND o.activo = 1");
+             java.sql.PreparedStatement psO = ConexionBD.getConexion().prepareStatement(
+                "SELECT COUNT(*) FROM ordenes WHERE mecanico_id = ? AND activo = 1");
+             Statement st = ConexionBD.getConexion().createStatement()) {
+
+            if (actual != null && actual.getRol() == com.taller.modelo.RolUsuario.MECANICO && actual.getPersonaId() != null) {
+                int mecId = actual.getPersonaId();
+                
+                // Clientes propios
+                psC.setInt(1, mecId);
+                try (ResultSet rs = psC.executeQuery()) { if (rs.next()) lblClientes.setText(String.valueOf(rs.getInt(1))); }
+                
+                // Mecánicos propios (solo él mismo)
+                lblMecanicos.setText("1");
+                
+                // Vehículos propios
+                psV.setInt(1, mecId);
+                try (ResultSet rs = psV.executeQuery()) { if (rs.next()) lblVehiculos.setText(String.valueOf(rs.getInt(1))); }
+                
+                // Órdenes asignadas
+                psO.setInt(1, mecId);
+                try (ResultSet rs = psO.executeQuery()) { if (rs.next()) lblOrdenes.setText(String.valueOf(rs.getInt(1))); }
+                
+                lblRefacciones.setText(String.valueOf(contar(st, "refacciones")));
+            } else {
+                // Admin, Gerente o Empleado ven los números globales del taller
+                lblClientes.setText(String.valueOf(contar(st, "clientes")));
+                lblMecanicos.setText(String.valueOf(contar(st, "mecanicos")));
+                lblVehiculos.setText(String.valueOf(contar(st, "vehiculos")));
+                lblOrdenes.setText(String.valueOf(contar(st, "ordenes")));
+                lblRefacciones.setText(String.valueOf(contar(st, "refacciones")));
+                lblBitacora.setText(String.valueOf(contar(st, "bitacora")));
+            }
         } catch (Exception e) {
             System.err.println("Error al actualizar estatus: " + e.getMessage());
         }
