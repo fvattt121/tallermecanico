@@ -126,6 +126,19 @@ public class MecanicoDAO {
         return null;
     }
 
+    public Mecanico buscarPorId(int id) {
+        String sql = "SELECT * FROM mecanicos WHERE id = ?";
+        try (PreparedStatement ps = ConexionBD.getConexion().prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapear(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error al buscar mecánico por id", e);
+        }
+        return null;
+    }
+
     private Mecanico mapear(ResultSet rs) throws SQLException {
         Mecanico m = new Mecanico(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
             rs.getString("email"), rs.getString("especialidad"), rs.getInt("disponible") == 1);

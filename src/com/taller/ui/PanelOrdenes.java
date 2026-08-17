@@ -208,11 +208,16 @@ public class PanelOrdenes extends JPanel implements Refrescable {
         scrollTabla.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, new Color(210, 215, 225)));
         panel.add(scrollTabla, BorderLayout.CENTER);
 
-        formsPanel = new JPanel(new GridLayout(1, 2, 8, 0));
+        Usuario actualUser = com.taller.util.Sesion.getUsuarioActual();
+        boolean esMecanico = actualUser != null && actualUser.getRol() == RolUsuario.MECANICO;
+
+        formsPanel = new JPanel(new GridLayout(1, esMecanico ? 1 : 2, 8, 0));
         formsPanel.setBackground(new Color(245, 247, 252));
         formsPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         formsPanel.add(construirFormRefaccion());
-        formsPanel.add(construirFormManoObra());
+        if (!esMecanico) {
+            formsPanel.add(construirFormManoObra());
+        }
         panel.add(formsPanel, BorderLayout.NORTH);
 
         // Pie con total y botones
@@ -556,6 +561,31 @@ public class PanelOrdenes extends JPanel implements Refrescable {
         List<Mecanico> mecanicos = mecanicoDAO.listarTodos();
         comboVehiculo = new JComboBox<>(vehiculos.toArray(new Vehiculo[0]));
         comboMecanico = new JComboBox<>(mecanicos.toArray(new Mecanico[0]));
+        
+        comboVehiculo.addActionListener(e -> {
+            Vehiculo v = (Vehiculo) comboVehiculo.getSelectedItem();
+            if (v != null) {
+                try {
+                    List<OrdenReparacion> ords = ordenDAO.listarPorVehiculo(v.getId());
+                    if (ords != null) {
+                        OrdenReparacion lastOrd = ords.stream()
+                            .filter(o -> o.isActivo() && o.getEstatus() != EstatusVehiculo.LISTO)
+                            .findFirst().orElse(null);
+                        if (lastOrd != null && lastOrd.getMecanicoId() != null) {
+                            int targetMecId = lastOrd.getMecanicoId();
+                            for (int i = 0; i < comboMecanico.getItemCount(); i++) {
+                                Mecanico m = comboMecanico.getItemAt(i);
+                                if (m != null && m.getId() == targetMecId) {
+                                    comboMecanico.setSelectedIndex(i);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        });
+
         JTextField txtProblema = new JTextField(24);
         txtProblema.setFont(new Font("SansSerif", Font.PLAIN, 13));
 

@@ -9,5 +9,11 @@
 			"path": "../../../../../../../Java principios/Tallermecanico"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.exclude": {
+			"bin/": true,
+			"**/*.class": true,
+			"**/imagenes/refacciones": true
+		}
+	}
 }

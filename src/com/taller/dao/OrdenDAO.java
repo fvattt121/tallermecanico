@@ -86,17 +86,21 @@ public class OrdenDAO {
     public void actualizarEstatus(int ordenId, EstatusVehiculo nuevoEstatus) {
         String sqlOrden = "UPDATE ordenes SET estatus = ? WHERE id = ?";
         String sqlVehiculo = "UPDATE vehiculos SET estatus = ? WHERE id = (SELECT vehiculo_id FROM ordenes WHERE id = ?)";
-        try (PreparedStatement ps1 = ConexionBD.getConexion().prepareStatement(sqlOrden);
-             PreparedStatement ps2 = ConexionBD.getConexion().prepareStatement(sqlVehiculo)) {
+        try (PreparedStatement ps1 = ConexionBD.getConexion().prepareStatement(sqlOrden)) {
             ps1.setString(1, nuevoEstatus.name());
             ps1.setInt(2, ordenId);
             ps1.executeUpdate();
 
-            ps2.setString(1, nuevoEstatus.name());
-            ps2.setInt(2, ordenId);
-            ps2.executeUpdate();
-
-            bitacoraDAO.registrar("ACTUALIZAR", "Orden id " + ordenId + " y vehículo cambiaron de estatus a " + nuevoEstatus.getEtiqueta());
+            if (nuevoEstatus != EstatusVehiculo.LISTO) {
+                try (PreparedStatement ps2 = ConexionBD.getConexion().prepareStatement(sqlVehiculo)) {
+                    ps2.setString(1, nuevoEstatus.name());
+                    ps2.setInt(2, ordenId);
+                    ps2.executeUpdate();
+                }
+                bitacoraDAO.registrar("ACTUALIZAR", "Orden id " + ordenId + " y vehículo cambiaron de estatus a " + nuevoEstatus.getEtiqueta());
+            } else {
+                bitacoraDAO.registrar("ACTUALIZAR", "Orden id " + ordenId + " cambió de estatus a " + nuevoEstatus.getEtiqueta());
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Error al actualizar estatus de orden", e);
         }

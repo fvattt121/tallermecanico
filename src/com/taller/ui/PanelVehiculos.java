@@ -28,9 +28,19 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         setBackground(Estilos.GRIS_CLARO);
 
+        JPanel panelCabecera = new JPanel(new BorderLayout());
+        panelCabecera.setOpaque(false);
+
         JLabel titulo = new JLabel("Recepcion de vehiculos - Inventario visual");
         titulo.setFont(Estilos.TITULO);
-        add(titulo, BorderLayout.NORTH);
+        panelCabecera.add(titulo, BorderLayout.WEST);
+
+        BotonEstilizado btnActualizar = new BotonEstilizado("Actualizar", Estilos.NARANJA);
+        btnActualizar.setPreferredSize(new Dimension(110, 32));
+        btnActualizar.addActionListener(e -> refrescar());
+        panelCabecera.add(btnActualizar, BorderLayout.EAST);
+
+        add(panelCabecera, BorderLayout.NORTH);
 
         listaVehiculos.setCellRenderer(new TarjetaVehiculoRenderer());
         listaVehiculos.setFixedCellHeight(70);
@@ -386,9 +396,37 @@ public class PanelVehiculos extends JPanel implements Refrescable {
                 }
             } catch (Exception ignored) {}
 
+            String mecanicoInfo = "";
+            try {
+                java.util.List<com.taller.modelo.OrdenReparacion> ordenes = new com.taller.dao.OrdenDAO().listarPorVehiculo(v.getId());
+                if (!ordenes.isEmpty()) {
+                    java.util.Set<String> nombresMecanicos = new java.util.LinkedHashSet<>();
+                    for (com.taller.modelo.OrdenReparacion o : ordenes) {
+                        if (o.isActivo() && o.getEstatus() != com.taller.modelo.EstatusVehiculo.LISTO && o.getMecanicoId() != null) {
+                            com.taller.modelo.Mecanico m = new com.taller.dao.MecanicoDAO().buscarPorId(o.getMecanicoId());
+                            if (m != null) {
+                                nombresMecanicos.add(m.getNombre());
+                            }
+                        }
+                    }
+                    if (!nombresMecanicos.isEmpty()) {
+                        mecanicoInfo = " | Mecánico: " + String.join(", ", nombresMecanicos);
+                    } else {
+                        // Fallback a la última orden (aunque esté LISTO)
+                        com.taller.modelo.OrdenReparacion ultimaOrden = ordenes.get(0);
+                        if (ultimaOrden.getMecanicoId() != null) {
+                            com.taller.modelo.Mecanico m = new com.taller.dao.MecanicoDAO().buscarPorId(ultimaOrden.getMecanicoId());
+                            if (m != null) {
+                                mecanicoInfo = " | Mecánico: " + m.getNombre();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
             String placaTxt = v.isActivo() ? v.getPlacas() : "[Archivado] " + v.getPlacas();
             info.setText("<html><b>" + placaTxt + "</b> - " + v.getMarca() + " " + v.getModelo() +
-                " (" + v.getAnio() + ") - " + v.getColor() + "<br><font color='gray'>" + propietarioInfo + "</font></html>");
+                " (" + v.getAnio() + ") - " + v.getColor() + "<br><font color='gray'>" + propietarioInfo + mecanicoInfo + "</font></html>");
             info.setFont(Estilos.NORMAL);
             estatusLbl.setText(v.getEstatus().getEtiqueta());
             estatusLbl.setBackground(Estilos.colorEstatus(v.getEstatus().getEtiqueta()));
